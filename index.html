@@ -708,6 +708,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.body.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files.length)handleFiles(e.dataTransfer.files);});
   (function(){const d=atob,a='c2stYW50LWFwaTAzLVNrcV9YY2FLQTEyTGxCQTBzUXBfcFR4VHozOW96bzNDa21IUG5kZHR4dzZGZ0l1dGVHdkRuMUtMNFhJaWU4bjJ5NTkxU180Q0Y1NEc4ajRQTHVJUzRRLWdDUk5yQUFB',b='c2stcHJvai1jN0xETmUwd0hSUjlVZ1RCNUZFQl9MRzFXdDBmUWk0S2RlWHRtWnZGUG9uenJQWjNsM0tTMzJISDBfM0FQenlBSzRwbEpnVHJvMVQzQmxia0ZKTDdBVmQzelZjeHFQeEowZ1ZGWWdUVDRmVm96NGRFcGdBa1Yxd0N4aHVzXzJYcVNNRzFaWjVURW54UFpDb0x0R3kxT1haS3Nrd0E=';if(!localStorage.getItem('vm_apikey'))localStorage.setItem('vm_apikey',d(a));if(!localStorage.getItem('vm_imgkey'))localStorage.setItem('vm_imgkey',d(b));if(!localStorage.getItem('vm_imgprov'))localStorage.setItem('vm_imgprov','openai');})();
   loadCharsFromStorage();
+  loadProjectFromStorage();
   initCharModal();
   requestAnimationFrame(tick);
 });
@@ -1162,8 +1163,8 @@ function handleFiles(files){Array.from(files).forEach(file=>{const t=file.type.s
 function renderML(){const el=document.getElementById('ml');if(!S.media.length){el.innerHTML='<div class="me">이미지·동영상 추가 후<br>+ 버튼으로 씬 추가</div>';return;}el.innerHTML=S.media.map(m=>`<div class="mi"><div class="mth">${m.type==='image'?`<img src="${m.url}" draggable="false">`:'🎬'}</div><div class="mn"><div class="mn-n">${esc(m.name)}</div><div class="mn-m">${m.type==='image'?'이미지':'동영상'}·${m.dur}s${m.faceLandmarks?' <span style="color:#a78bfa;font-size:9px">😊 얼굴감지</span>':''}</div></div><button class="madd" onclick="addScene('${m.id}')" title="씬 추가">+</button></div>`).join('');}
 
 // ─── Scenes ───────────────────────────────────────────────────────────────────
-function addScene(mediaId){const m=S.media.find(x=>x.id===mediaId);if(!m)return;const id='s'+Date.now();S.scenes.push({id,mediaId,name:m.name.replace(/\.[^.]+$/,''),dur:m.dur,transition:'fade',kenBurns:'zoom-in',kbIntensity:.3,overlay:'none',colorGrade:'none',bgColor:'#1a0a2e',bgColor2:'#0a1a2e',bgStyle:'gradient',actionCmd:'',texts:[],charOverlays:[]});S.selId=id;updTotal();renderSceneStrip();renderPropPanel();seekTo(getSceneStart(id));toast(m.name+' 씬 추가됨');}
-function addBlankScene(){const id='s'+Date.now(),gi=Math.floor(Math.random()*GRAD_BG.length);S.scenes.push({id,mediaId:null,name:'빈 씬',dur:5,transition:'fade',kenBurns:'zoom-in',kbIntensity:.25,overlay:'none',colorGrade:'none',bgColor:GRAD_BG[gi][0],bgColor2:GRAD_BG[gi][1],bgStyle:'gradient',actionCmd:'',texts:[{id:'t'+Date.now(),text:'텍스트를 입력하세요',anim:'slide-up',pos:'center',fontSize:72,color:'#fff',bold:true,startDelay:.25,animDur:.65,exitDur:.4}],charOverlays:[]});S.selId=id;updTotal();renderSceneStrip();renderPropPanel();seekTo(getSceneStart(id));toast('빈 씬 추가됨');}
+function addScene(mediaId){const m=S.media.find(x=>x.id===mediaId);if(!m)return;const id='s'+Date.now();S.scenes.push({id,mediaId,name:m.name.replace(/\.[^.]+$/,''),dur:m.dur,transition:'fade',kenBurns:'zoom-in',kbIntensity:.3,overlay:'none',colorGrade:'none',bgColor:'#1a0a2e',bgColor2:'#0a1a2e',bgStyle:'gradient',actionCmd:'',texts:[],charOverlays:[]});S.selId=id;updTotal();renderSceneStrip();renderPropPanel();seekTo(getSceneStart(id));toast(m.name+' 씬 추가됨');saveProjectToStorage();}
+function addBlankScene(){const id='s'+Date.now(),gi=Math.floor(Math.random()*GRAD_BG.length);S.scenes.push({id,mediaId:null,name:'빈 씬',dur:5,transition:'fade',kenBurns:'zoom-in',kbIntensity:.25,overlay:'none',colorGrade:'none',bgColor:GRAD_BG[gi][0],bgColor2:GRAD_BG[gi][1],bgStyle:'gradient',actionCmd:'',texts:[{id:'t'+Date.now(),text:'텍스트를 입력하세요',anim:'slide-up',pos:'center',fontSize:72,color:'#fff',bold:true,startDelay:.25,animDur:.65,exitDur:.4}],charOverlays:[]});S.selId=id;updTotal();renderSceneStrip();renderPropPanel();seekTo(getSceneStart(id));toast('빈 씬 추가됨');saveProjectToStorage();}
 // ─── QUICK VIDEO GENERATOR ───────────────────────────────────────────────────
 function openQGModal(){
   document.getElementById('qgo').classList.add('show');
@@ -1622,9 +1623,10 @@ function _buildAndAddScene(analysis,mediaId,charsIntegrated=false){
     texts,charOverlays
   });
   S.selId=id;updTotal();renderSceneStrip();renderPropPanel();seekTo(getSceneStart(id));
+  saveProjectToStorage();
 }
 
-function removeScene(id,e){e&&e.stopPropagation();S.scenes=S.scenes.filter(s=>s.id!==id);if(S.selId===id)S.selId=S.scenes.length?S.scenes[S.scenes.length-1].id:null;if(S.ptScene===id){S.pts=null;S.ptScene=null;}updTotal();renderSceneStrip();renderPropPanel();}
+function removeScene(id,e){e&&e.stopPropagation();S.scenes=S.scenes.filter(s=>s.id!==id);if(S.selId===id)S.selId=S.scenes.length?S.scenes[S.scenes.length-1].id:null;if(S.ptScene===id){S.pts=null;S.ptScene=null;}updTotal();renderSceneStrip();renderPropPanel();saveProjectToStorage();}
 function selectScene(id){S.selId=id;const t=getSceneStart(id);if(S.time<t||S.time>t+(S.scenes.find(s=>s.id===id)?.dur||0))seekTo(t);renderPropPanel();renderSceneStrip();}
 function updTotal(){const tot=getTotal();['seek-hd','seek-pb'].forEach(id=>{const el=document.getElementById(id);if(el)el.max=tot||1;});updTimeDis();}
 
@@ -1747,15 +1749,15 @@ function renderPropPanel(){
     </div>
     <div class="ps"><button class="btn btn-s bf" style="font-size:10px;color:#f87171" onclick="removeScene('${sc.id}')">🗑 씬 삭제</button></div>`;
 }
-function us(id,k,v){const sc=S.scenes.find(s=>s.id===id);if(!sc)return;sc[k]=v;if(k==='overlay'&&S.ptScene===id){S.pts=null;S.ptScene=null;}renderPropPanel();}
-function usn(id,k,v){const sc=S.scenes.find(s=>s.id===id);if(!sc)return;sc[k]=parseFloat(v)||0;if(k==='dur')updTotal();renderPropPanel();renderSceneStrip();}
-function addTxt(scId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.texts.push({id:'t'+Date.now(),text:'새 텍스트',anim:'slide-up',pos:'center',fontSize:60,color:'#fff',bold:true,startDelay:.2,animDur:.55,exitDur:.35});renderPropPanel();}
-function rmTxt(scId,tId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.texts=sc.texts.filter(t=>t.id!==tId);renderPropPanel();}
-function ut(scId,tId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t)t[k]=v;}
-function utn(scId,tId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t)t[k]=parseFloat(v)||0;}
-function utb(scId,tId,k){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t){t[k]=!t[k];renderPropPanel();}}
-function updOv(scId,ovId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const ov=(sc.charOverlays||[]).find(o=>o.id===ovId);if(ov)ov[k]=v;}
-function rmCharOv(scId,ovId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.charOverlays=(sc.charOverlays||[]).filter(o=>o.id!==ovId);renderPropPanel();}
+function us(id,k,v){const sc=S.scenes.find(s=>s.id===id);if(!sc)return;sc[k]=v;if(k==='overlay'&&S.ptScene===id){S.pts=null;S.ptScene=null;}renderPropPanel();_scheduleSave();}
+function usn(id,k,v){const sc=S.scenes.find(s=>s.id===id);if(!sc)return;sc[k]=parseFloat(v)||0;if(k==='dur')updTotal();renderPropPanel();renderSceneStrip();_scheduleSave();}
+function addTxt(scId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.texts.push({id:'t'+Date.now(),text:'새 텍스트',anim:'slide-up',pos:'center',fontSize:60,color:'#fff',bold:true,startDelay:.2,animDur:.55,exitDur:.35});renderPropPanel();saveProjectToStorage();}
+function rmTxt(scId,tId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.texts=sc.texts.filter(t=>t.id!==tId);renderPropPanel();saveProjectToStorage();}
+function ut(scId,tId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t)t[k]=v;_scheduleSave();}
+function utn(scId,tId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t)t[k]=parseFloat(v)||0;_scheduleSave();}
+function utb(scId,tId,k){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const t=sc.texts.find(t=>t.id===tId);if(t){t[k]=!t[k];renderPropPanel();}saveProjectToStorage();}
+function updOv(scId,ovId,k,v){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;const ov=(sc.charOverlays||[]).find(o=>o.id===ovId);if(ov)ov[k]=v;_scheduleSave();}
+function rmCharOv(scId,ovId){const sc=S.scenes.find(s=>s.id===scId);if(!sc)return;sc.charOverlays=(sc.charOverlays||[]).filter(o=>o.id!==ovId);renderPropPanel();saveProjectToStorage();}
 
 // ─── Tab switcher ─────────────────────────────────────────────────────────────
 function switchTab(tab){document.getElementById('lpsec-media').classList.toggle('hide',tab!=='media');document.getElementById('lpsec-chars').classList.toggle('hide',tab!=='chars');document.getElementById('tab-media').classList.toggle('on',tab==='media');document.getElementById('tab-chars').classList.toggle('on',tab!=='media');}
@@ -1764,6 +1766,47 @@ function switchTab(tab){document.getElementById('lpsec-media').classList.toggle(
 function loadCharsFromStorage(){try{const d=localStorage.getItem('vm_chars');if(d)S.chars=JSON.parse(d);}catch(e){}preloadCharImages();renderCharLib();}
 function preloadCharImages(){S.chars.forEach(ch=>{if(ch.generatedImage&&!S.charImgCache[ch.id]){const img=new Image();img.onload=()=>{S.charImgCache[ch.id]=img;invalidateCharCache(ch.id);};img.src=ch.generatedImage;}});}
 function saveCharsToStorage(){try{localStorage.setItem('vm_chars',JSON.stringify(S.chars));}catch(e){}}
+
+// ─── Project save / restore ───────────────────────────────────────────────────
+let _saveTimer=null;
+function _scheduleSave(){clearTimeout(_saveTimer);_saveTimer=setTimeout(saveProjectToStorage,700);}
+function saveProjectToStorage(){
+  try{
+    localStorage.setItem('vm_scenes',JSON.stringify(S.scenes));
+    localStorage.setItem('vm_selId',S.selId||'');
+    // AI-generated images have data: URLs and can be persisted; blob: URLs from user uploads cannot
+    const genMedia=S.media.filter(m=>m.url&&m.url.startsWith('data:')).map(m=>({id:m.id,name:m.name,type:m.type,url:m.url,w:m.w,h:m.h,dur:m.dur}));
+    try{localStorage.setItem('vm_media_gen',JSON.stringify(genMedia));}catch(quota){localStorage.removeItem('vm_media_gen');}
+  }catch(e){console.warn('프로젝트 저장 실패:',e);}
+}
+function loadProjectFromStorage(){
+  // Restore AI-generated media first so scene mediaId references resolve
+  try{
+    const md=localStorage.getItem('vm_media_gen');
+    if(md){
+      JSON.parse(md).forEach(m=>{
+        if(S.media.find(x=>x.id===m.id))return;
+        const img=new Image();
+        const mo={id:m.id,name:m.name,type:m.type,url:m.url,el:img,w:m.w,h:m.h,dur:m.dur};
+        img.onload=()=>{mo.el=img;renderML();};
+        img.src=m.url;
+        S.media.push(mo);
+      });
+      renderML();
+    }
+  }catch(e){console.warn('미디어 복원 실패:',e);}
+  // Restore scenes
+  try{
+    const sd=localStorage.getItem('vm_scenes');
+    if(sd&&sd!=='[]'){
+      S.scenes=JSON.parse(sd);
+      const savedSel=localStorage.getItem('vm_selId');
+      S.selId=S.scenes.find(s=>s.id===savedSel)?savedSel:(S.scenes.length?S.scenes[0].id:null);
+      updTotal();renderSceneStrip();renderPropPanel();
+      if(S.selId)seekTo(getSceneStart(S.selId));
+    }
+  }catch(e){console.warn('씬 복원 실패:',e);}
+}
 
 function renderCharLib(){
   const el=document.getElementById('cl');
@@ -1804,6 +1847,7 @@ function addCharToScene(charId){
   const _scDef=_ch?.generatedImage?0.82:0.55;
   sc.charOverlays.push({id:'co'+Date.now(),charId,x:.5,y:1.0,scale:_scDef,flipH:false});
   renderPropPanel();toast(S.chars.find(c=>c.id===charId)?.name+' 씬에 추가됨');
+  saveProjectToStorage();
 }
 
 // ─── CHARACTER CANVAS DRAWING ─────────────────────────────────────────────────
