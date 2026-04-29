@@ -1148,8 +1148,13 @@ function drawText(tl,tin,sceneDur){
   const[px,py]=PMAP[tl.pos||'center']||[.5,.5],cx=px*S.W,cy=py*S.H,fs=tl.fontSize||60;
   ctx.save();ctx.globalAlpha=clamp(a,0,1);ctx.translate(cx+ox,cy+oy);if(sc!==1)ctx.scale(sc,sc);
   ctx.font=`${tl.bold?'bold ':''}${fs}px ${tl.font||'Segoe UI,sans-serif'}`;ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.shadowColor='rgba(0,0,0,.95)';ctx.shadowBlur=18;ctx.shadowOffsetX=3;ctx.shadowOffsetY=3;
-  if(tl.stroke){ctx.strokeStyle='rgba(0,0,0,.65)';ctx.lineWidth=fs*.08;ctx.strokeText(tl.text||'',0,0);}
+  // Scale shadow with font size; divide by sc so scale() transforms don't amplify it
+  const _eff=Math.max(sc,0.1);
+  ctx.shadowColor='rgba(0,0,0,.78)';
+  ctx.shadowBlur=(fs*0.22)/_eff;
+  ctx.shadowOffsetX=(fs*0.04)/_eff;
+  ctx.shadowOffsetY=(fs*0.04)/_eff;
+  if(tl.stroke){ctx.strokeStyle='rgba(0,0,0,.60)';ctx.lineWidth=(fs*0.06)/_eff;ctx.strokeText(tl.text||'',0,0);}
   ctx.fillStyle=tl.color||'#fff';
   if(tl.anim==='typewriter'){const chars=Math.floor(ep*(tl.text||'').length);ctx.fillText((tl.text||'').slice(0,chars),0,0);if(ep<1&&Math.floor(Date.now()/400)%2===0){const w=ctx.measureText((tl.text||'').slice(0,chars)).width;ctx.fillText('|',w/2+fs*.18,0);}}
   else ctx.fillText(tl.text||'',0,0);
