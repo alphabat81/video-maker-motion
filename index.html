@@ -2780,9 +2780,12 @@ function startExport(){
   S.exportCancel=false;
   document.getElementById('xo').classList.add('show');
   document.getElementById('xpf').style.width='0%';
+  document.getElementById('xpt').textContent='준비 중...';
   const mimes=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))||'video/webm';
-  const vs=canvas.captureStream(S.fps);
+  // captureStream(0) = manual frame push via requestFrame() — decouples render from display rate
+  const vs=canvas.captureStream(0);
+  const _vtrack=vs.getVideoTracks()[0];
   if(S.audio&&window.AudioContext){try{
     const ac=_ensureAudioCtx();
     if(!_analyser){_analyser=ac.createAnalyser();_analyser.fftSize=256;_analyser.smoothingTimeConstant=0.8;_analyser.connect(ac.destination);}
@@ -2798,21 +2801,47 @@ function startExport(){
   }catch(e){console.warn('export audio:',e);}}
   const chunks=[];let rec;try{rec=new MediaRecorder(vs,{mimeType:mime});}catch(e){rec=new MediaRecorder(vs);}
   rec.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-  rec.onstop=()=>{if(S.exportCancel){document.getElementById('xo').classList.remove('show');return;}const blob=new Blob(chunks,{type:'video/webm'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='motion-'+Date.now()+'.webm';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000);document.getElementById('xo').classList.remove('show');toast('내보내기 완료!');};
-  S.exporting=true;S.time=0;if(S.audio){S.audio.el.currentTime=0;S.audio.el.play().catch(()=>{});}rec.start(100);
-  const fms=1000/S.fps,totalF=Math.ceil(tot*S.fps);let frame=0;
-  xInt=setInterval(()=>{
-    if(S.exportCancel){clearInterval(xInt);rec.stop();if(S.audio)S.audio.el.pause();S.exporting=false;return;}
-    S.time=frame/S.fps;const info=getSceneAt(S.time);
-    if(info&&info.scene.overlay!=='none'&&S.ptScene!==info.scene.id){S.pts=new Particles(info.scene.overlay,S.W,S.H);S.ptScene=info.scene.id;}
-    if(S.pts)S.pts.step();
-    const was=S.playing;S.playing=true;renderFrame(frame*fms);S.playing=was;
-    frame++;const pct=Math.round(frame/totalF*100);
-    document.getElementById('xpf').style.width=pct+'%';document.getElementById('xpt').textContent=pct+'% — '+fmtT(S.time)+' / '+fmtT(tot);
-    if(frame>totalF){clearInterval(xInt);setTimeout(()=>{rec.stop();if(S.audio)S.audio.el.pause();S.exporting=false;},300);}
-  },fms);
+  rec.onstop=()=>{
+    if(S.exportCancel){document.getElementById('xo').classList.remove('show');return;}
+    const blob=new Blob(chunks,{type:'video/webm'});const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='motion-'+Date.now()+'.webm';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    document.getElementById('xo').classList.remove('show');toast('내보내기 완료!');
+  };
+  S.exporting=true;S.time=0;
+  if(S.audio){S.audio.el.currentTime=0;S.audio.el.play().catch(()=>{});}
+  rec.start(100);
+  const fms=1000/S.fps,totalF=Math.ceil(tot*S.fps);
+  let frame=0,_lastTs=null;
+  function _exportStep(ts){
+    if(S.exportCancel){rec.stop();if(S.audio)S.audio.el.pause();S.exporting=false;return;}
+    if(_lastTs===null)_lastTs=ts;
+    // Only render when enough virtual time has elapsed (real-time pacing for audio sync)
+    if(ts-_lastTs>=fms){
+      _lastTs+=fms; // increment by fixed step to avoid drift
+      S.time=frame/S.fps;
+      const info=getSceneAt(S.time);
+      if(info&&info.scene.overlay!=='none'&&S.ptScene!==info.scene.id){S.pts=new Particles(info.scene.overlay,S.W,S.H);S.ptScene=info.scene.id;}
+      if(S.pts)S.pts.step();
+      const was=S.playing;S.playing=true;renderFrame(frame*fms);S.playing=was;
+      if(_vtrack)_vtrack.requestFrame(); // manually push rendered frame into stream
+      frame++;
+      const pct=Math.round(frame/totalF*100);
+      document.getElementById('xpf').style.width=pct+'%';
+      document.getElementById('xpt').textContent=pct+'% — '+fmtT(S.time)+' / '+fmtT(tot);
+      if(frame>totalF){setTimeout(()=>{rec.stop();if(S.audio)S.audio.el.pause();S.exporting=false;},300);return;}
+    }
+    xInt=requestAnimationFrame(_exportStep);
+  }
+  xInt=requestAnimationFrame(_exportStep);
 }
-function cancelExport(){S.exportCancel=true;S.exporting=false;if(xInt)clearInterval(xInt);if(S.audio)S.audio.el.pause();document.getElementById('xo').classList.remove('show');}
+function cancelExport(){
+  S.exportCancel=true;S.exporting=false;
+  if(xInt){cancelAnimationFrame(xInt);xInt=null;}
+  if(S.audio)S.audio.el.pause();
+  document.getElementById('xo').classList.remove('show');
+}
 
 // ─── TTS AUDIO EXTRACTOR ──────────────────────────────────────────────────────
 function openTTSModal(){
