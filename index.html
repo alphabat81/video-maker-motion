@@ -889,17 +889,30 @@ function _drawVignette(ctx,W,H,t){
 }
 
 let _lastKBTransform=null; // shared so renderFrame can draw face-scene props in screen coords
+// Sine ease-in-out: smoothest curve for camera moves (zero velocity at both ends)
+const _kbEase=t=>(1-Math.cos(Math.PI*t))/2;
 function drawKB(media,prog,sc){
   let el=media.el;
   if(media.type==='video'){const t2=prog*(sc.dur||5);if(Math.abs(el.currentTime-t2)>.2)el.currentTime=t2;}
   if(media.faceLandmarks&&media.type==='image')el=drawFaceFrame(media);
   const mw=media.w||S.W,mh=media.h||S.H,base=Math.max(S.W/mw,S.H/mh);
-  let scale=base,tx=0,ty=0;const p=E.io(prog),boost=1+sc.kbIntensity*.08;
-  switch(sc.kenBurns){case'zoom-in':scale=base*lerp(1,boost,p);break;case'zoom-out':scale=base*lerp(boost,1,p);break;case'pan-left':scale=base*(1+sc.kbIntensity*.06);tx=lerp(S.W*.045*sc.kbIntensity,-S.W*.045*sc.kbIntensity,p);break;case'pan-right':scale=base*(1+sc.kbIntensity*.06);tx=lerp(-S.W*.045*sc.kbIntensity,S.W*.045*sc.kbIntensity,p);break;case'zoom-pan':scale=base*lerp(1,boost,p);tx=lerp(-S.W*.035,S.W*.035,p)*sc.kbIntensity;ty=lerp(-S.H*.025,S.H*.025,p)*sc.kbIntensity;break;case'pan-up':scale=base*(1+sc.kbIntensity*.06);ty=lerp(S.H*.04*sc.kbIntensity,-S.H*.04*sc.kbIntensity,p);break;default:scale=base;}
-  const _sf=Math.sin(S.time*0.72)*0.75+Math.sin(S.time*0.31)*0.45;
-  const _sx=Math.sin(S.time*0.48)*0.65+Math.sin(S.time*0.93)*0.28;
-  tx+=_sx; ty+=_sf;
-  _lastKBTransform={scale,tx,ty,mw,mh}; // save for face-scene prop positioning
+  let scale=base,tx=0,ty=0;
+  // Use sine ease for KB — gentler than cubic, no abrupt stop at ends
+  const p=_kbEase(prog),boost=1+sc.kbIntensity*.14;
+  switch(sc.kenBurns){
+    case'zoom-in':  scale=base*lerp(1,boost,p);break;
+    case'zoom-out': scale=base*lerp(boost,1,p);break;
+    case'pan-left': scale=base*(1+sc.kbIntensity*.10);tx=lerp(S.W*.07*sc.kbIntensity,-S.W*.07*sc.kbIntensity,p);break;
+    case'pan-right':scale=base*(1+sc.kbIntensity*.10);tx=lerp(-S.W*.07*sc.kbIntensity,S.W*.07*sc.kbIntensity,p);break;
+    case'zoom-pan': scale=base*lerp(1,boost,p);tx=lerp(-S.W*.05,S.W*.05,p)*sc.kbIntensity;ty=lerp(-S.H*.035,S.H*.035,p)*sc.kbIntensity;break;
+    case'pan-up':   scale=base*(1+sc.kbIntensity*.10);ty=lerp(S.H*.06*sc.kbIntensity,-S.H*.06*sc.kbIntensity,p);break;
+    default:scale=base;
+  }
+  // Micro-jitter: reduce amplitude so it doesn't fight the smooth KB motion
+  const _sf=Math.sin(S.time*0.72)*0.28+Math.sin(S.time*0.31)*0.18;
+  const _sx=Math.sin(S.time*0.48)*0.22+Math.sin(S.time*0.93)*0.12;
+  tx+=_sx;ty+=_sf;
+  _lastKBTransform={scale,tx,ty,mw,mh};
   const _lp=1+Math.sin(S.time*0.24)*0.006+Math.sin(S.time*0.61)*0.003;
   const _pf=ctx.filter&&ctx.filter!=='none'?ctx.filter:'';
   ctx.filter=(_pf+' brightness('+_lp.toFixed(3)+')').trim();
